@@ -137,15 +137,23 @@ def pick_view(pa: list, ap: list, image_list: list) -> tuple[str, str] | None:
 
 
 def find_csvs(root: Path) -> tuple[Path | None, Path | None]:
-    """Locate mimic_cxr_aug_train.csv and mimic_cxr_aug_validate.csv under root."""
+    """Locate mimic_cxr_aug_train.csv and mimic_cxr_aug_validate.csv.
+
+    Depth-limited (root + immediate subdirs). rglob over the full tree drags
+    in 260K JPGs and adds tens of seconds for no reason.
+    """
+    candidates = [root] + [p for p in root.iterdir() if p.is_dir()]
     train: Path | None = None
     val: Path | None = None
-    for c in root.rglob("*.csv"):
-        n = c.name.lower()
-        if train is None and "train" in n:
-            train = c
-        elif val is None and ("val" in n or "valid" in n):
-            val = c
+    for base in candidates:
+        for c in base.glob("*.csv"):
+            n = c.name.lower()
+            if train is None and "train" in n:
+                train = c
+            elif val is None and ("val" in n or "valid" in n):
+                val = c
+            if train and val:
+                return train, val
     return train, val
 
 
@@ -173,7 +181,11 @@ def find_images_root(kagglehub_root: Path) -> Path:
 
 
 def build_eligible(df_all: pd.DataFrame, images_root: Path) -> tuple[list[dict], dict]:
-    """Parse + filter + view-pick + path-resolve. Returns (eligible_rows, funnel)."""
+    """Parse + filter + view-pick + path-resolve. Returns (eligible_rows, funnel).
+
+    Iterates via itertuples (~50x faster than iterrows on 65K rows) on a column
+    subset; tqdm gives a progress bar so the user can see it isn't hung.
+    """
     funnel = {
         "total": len(df_all),
         "parseable": 0,
@@ -184,24 +196,32 @@ def build_eligible(df_all: pd.DataFrame, images_root: Path) -> tuple[list[dict],
     }
     eligible: list[dict] = []
 
-    for _, row in df_all.iterrows():
-        parsed = {col: parse_list_cell(row.get(col)) for col in LIST_COLUMNS}
-        if any(parsed[c] is None for c in LIST_COLUMNS):
+    df_iter = df_all[["subject_id", "image", "PA", "AP", "text"]]
+    for row in tqdm(
+        df_iter.itertuples(index=False, name="Row"),
+        total=len(df_iter),
+        desc="parsing rows",
+    ):
+        image_list = parse_list_cell(row.image)
+        pa_list = parse_list_cell(row.PA)
+        ap_list = parse_list_cell(row.AP)
+        text_list = parse_list_cell(row.text)
+        if image_list is None or pa_list is None or ap_list is None or text_list is None:
             continue
         funnel["parseable"] += 1
 
-        reports = filter_reports(parsed["text"])
+        reports = filter_reports(text_list)
         if len(reports) != 1:
             continue
         funnel["exactly_one_report"] += 1
         report = reports[0]
 
-        pa_ok = bool(parsed["PA"]) and isinstance(parsed["PA"][0], str) and parsed["PA"][0].strip()
-        ap_ok = bool(parsed["AP"]) and isinstance(parsed["AP"][0], str) and parsed["AP"][0].strip()
+        pa_ok = bool(pa_list) and isinstance(pa_list[0], str) and pa_list[0].strip()
+        ap_ok = bool(ap_list) and isinstance(ap_list[0], str) and ap_list[0].strip()
         if pa_ok or ap_ok:
             funnel["has_pa_or_ap_image"] += 1
 
-        picked = pick_view(parsed["PA"], parsed["AP"], parsed["image"])
+        picked = pick_view(pa_list, ap_list, image_list)
         if picked is None:
             continue
         funnel["has_any_image"] += 1
@@ -213,7 +233,7 @@ def build_eligible(df_all: pd.DataFrame, images_root: Path) -> tuple[list[dict],
         funnel["image_file_resolves"] += 1
 
         eligible.append({
-            "subject_id": str(row.get("subject_id")),
+            "subject_id": str(row.subject_id),
             "image_abspath": abs_path,
             "view_used": view_used,
             "report": report,
