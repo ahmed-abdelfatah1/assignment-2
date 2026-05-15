@@ -6,6 +6,8 @@ bitsandbytes
 
 # Vision-language retrieval (mandatory)
 colpali-engine>=0.3
+# colpali-engine 0.3+ uses torchao internally and rejects <0.16.0 at runtime.
+torchao>=0.16.0
 
 # Baselines
 sentence-transformers
