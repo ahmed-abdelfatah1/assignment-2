@@ -27,7 +27,8 @@ models:
     index_path: "data/sample/colpali_index"
     report_image_size: [1024, 1280]   # width, height for rendered report PNGs
   clip:
-    model_name: "ViT-B-32"
+    # Use the -quickgelu variant so activation matches OpenAI's pretrained weights.
+    model_name: "ViT-B-32-quickgelu"
     pretrained: "openai"
     index_path: "data/sample/clip_index.faiss"
   text_retriever:
