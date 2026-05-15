@@ -149,7 +149,23 @@ def find_csvs(root: Path) -> tuple[Path | None, Path | None]:
     return train, val
 
 
-def build_eligible(df_all: pd.DataFrame, dataset_root: Path) -> tuple[list[dict], dict]:
+def find_images_root(kagglehub_root: Path) -> Path:
+    """Locate the directory whose 'files/pXX/' subpath exists.
+
+    The CSV stores image paths relative to a parent that varies by dataset
+    version (e.g. '.../official_data_iccv_final/files/p10/...'). We detect
+    the parent of `files/` so CSV-relative paths can be joined directly.
+    """
+    for candidate in kagglehub_root.rglob("files"):
+        if candidate.is_dir() and any(candidate.glob("p1*")):
+            return candidate.parent  # parent of 'files/', e.g. '.../official_data_iccv_final/'
+    raise FileNotFoundError(
+        f"Could not locate 'files/pXX/' image tree under {kagglehub_root}. "
+        f"Check dataset layout."
+    )
+
+
+def build_eligible(df_all: pd.DataFrame, images_root: Path) -> tuple[list[dict], dict]:
     """Parse + filter + view-pick + path-resolve. Returns (eligible_rows, funnel)."""
     funnel = {
         "total": len(df_all),
@@ -184,7 +200,7 @@ def build_eligible(df_all: pd.DataFrame, dataset_root: Path) -> tuple[list[dict]
         funnel["has_any_image"] += 1
         img_relpath, view_used = picked
 
-        abs_path = dataset_root / img_relpath
+        abs_path = images_root / img_relpath
         if not abs_path.is_file():
             continue
         funnel["image_file_resolves"] += 1
@@ -199,12 +215,13 @@ def build_eligible(df_all: pd.DataFrame, dataset_root: Path) -> tuple[list[dict]
     return eligible, funnel
 
 
-def print_funnel(funnel: dict) -> None:
+def print_funnel(funnel: dict, images_root: Path) -> None:
     log.info("Patient funnel:")
     log.info("  [1] total rows                    : %d", funnel["total"])
     log.info("  [2] with all lists parseable      : %d", funnel["parseable"])
     log.info("  [3] exactly-one non-empty report  : %d", funnel["exactly_one_report"])
     log.info("  [4] has >=1 PA or AP image        : %d", funnel["has_pa_or_ap_image"])
+    log.info("  [4.5] images_root detected as     : %s", images_root)
     log.info("  [.] has any usable image (any view): %d", funnel["has_any_image"])
     log.info("  [.] image file resolves on disk   : %d  (== eligible pool)", funnel["image_file_resolves"])
 
@@ -276,8 +293,16 @@ def main() -> None:
     log.info("Combined rows: %d (train=%d, val=%d)",
              len(df_all), len(df_train), len(df_val))
 
-    eligible, funnel = build_eligible(df_all, dataset_path)
-    print_funnel(funnel)
+    try:
+        images_root = find_images_root(dataset_path)
+    except FileNotFoundError as e:
+        log.error("%s", e)
+        log.error("Run with --inspect to see the dataset layout.")
+        sys.exit(1)
+    log.info("images_root: %s", images_root)
+
+    eligible, funnel = build_eligible(df_all, images_root)
+    print_funnel(funnel, images_root)
 
     if args.inspect_csv:
         return
