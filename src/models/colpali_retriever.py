@@ -67,18 +67,28 @@ def _ensure_model():
         from colpali_engine.models import ColPali, ColPaliProcessor
 
         cfg = _load_config()
-        model_id = cfg["models"]["colpali"]["hf_id"]
+        mc = cfg["models"]["colpali"]
+        model_id = mc["hf_id"]
+        load_in_4bit = mc.get("load_in_4bit", False)
         token = os.environ.get("HF_TOKEN")
         auth_kw = {"token": token} if token else {}
 
-        print(f"[colpali] loading {model_id}...", flush=True)
+        print(f"[colpali] loading {model_id} (4bit={load_in_4bit})...", flush=True)
         t0 = _t.time()
-        model = ColPali.from_pretrained(
-            model_id,
-            torch_dtype=torch.bfloat16,
+        from_pretrained_kw = dict(
             device_map="cuda:0",
+            torch_dtype=torch.bfloat16,
             **auth_kw,
         )
+        if load_in_4bit:
+            from transformers import BitsAndBytesConfig
+            from_pretrained_kw["quantization_config"] = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_compute_dtype=torch.bfloat16,
+                bnb_4bit_use_double_quant=True,
+            )
+        model = ColPali.from_pretrained(model_id, **from_pretrained_kw)
         model.train(False)
         print(f"[colpali] model ready in {_t.time()-t0:.1f}s", flush=True)
         processor = ColPaliProcessor.from_pretrained(model_id, **auth_kw)

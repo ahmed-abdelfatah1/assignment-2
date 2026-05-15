@@ -26,6 +26,8 @@ models:
     hf_id: "vidore/colpali-v1.3"
     index_path: "data/sample/colpali_index"
     report_image_size: [1024, 1280]   # width, height for rendered report PNGs
+    # 4-bit shrinks ~6 GB -> ~2 GB so it coexists with MedGemma 4-bit on a T4.
+    load_in_4bit: true
   clip:
     # Use the -quickgelu variant so activation matches OpenAI's pretrained weights.
     model_name: "ViT-B-32-quickgelu"
