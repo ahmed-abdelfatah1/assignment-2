@@ -42,7 +42,7 @@ retrieval:
 
 # ---------- QA dataset generation ----------
 qa_generation:
-  reports_to_use: 100        # subset of manifest_index for QA pairs
+  reports_to_use: 25         # 25 * 3 pairs = 75 QA items; covers eval.qa_test_n=50 + buffer
   pairs_per_report: 3
 
 # ---------- Evaluation ----------
