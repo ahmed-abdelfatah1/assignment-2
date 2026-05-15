@@ -50,6 +50,12 @@ def _ensure_loaded():
         if _model is not None and _processor is not None:
             return _model, _processor
 
+        if not torch.cuda.is_available():
+            raise RuntimeError(
+                "CUDA is not available; MedGemma 4-bit requires a CUDA GPU. "
+                "On Colab: Runtime > Change runtime type > T4 GPU."
+            )
+
         from transformers import (
             AutoModelForImageTextToText,
             AutoProcessor,

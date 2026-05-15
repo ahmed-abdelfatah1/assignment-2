@@ -40,7 +40,11 @@ def _load_config() -> dict:
 
 
 def _device() -> str:
-    return "cuda" if torch.cuda.is_available() else "cpu"
+    if not torch.cuda.is_available():
+        raise RuntimeError(
+            "CUDA is not available. On Colab: Runtime > Change runtime type > T4 GPU."
+        )
+    return "cuda"
 
 
 def _ensure_model():
@@ -49,14 +53,21 @@ def _ensure_model():
     with _lock:
         if _state["model"] is not None:
             return _state["model"], _state["preprocess"]
+        import time as _t
         cfg = _load_config()
         mc = cfg["models"]["clip"]
+        print(f"[clip] create_model_and_transforms(name={mc['model_name']}, pretrained={mc['pretrained']})...", flush=True)
+        t0 = _t.time()
         model, _, preprocess = open_clip.create_model_and_transforms(
             mc["model_name"], pretrained=mc["pretrained"]
         )
+        print(f"[clip] model built in {_t.time()-t0:.1f}s", flush=True)
         device = _device()
+        print(f"[clip] moving to {device}...", flush=True)
+        t0 = _t.time()
         model = model.to(device)
         model.train(False)
+        print(f"[clip] on {device} in {_t.time()-t0:.1f}s", flush=True)
         _state["model"] = model
         _state["preprocess"] = preprocess
         return model, preprocess
