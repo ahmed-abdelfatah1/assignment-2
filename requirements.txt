@@ -1,0 +1,31 @@
+# Core ML / inference
+torch>=2.2
+transformers>=4.45
+accelerate
+bitsandbytes
+
+# Vision-language retrieval (mandatory)
+colpali-engine>=0.3
+
+# Baselines
+sentence-transformers
+open_clip_torch
+
+# Vector index
+faiss-cpu
+
+# Demo UI
+gradio>=4
+
+# Metrics
+evaluate
+rouge-score
+bert-score
+
+# Data + utils
+kagglehub
+pandas
+pillow
+pyyaml
+python-dotenv
+tqdm

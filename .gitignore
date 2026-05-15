@@ -1,0 +1,31 @@
+# Secrets
+.env
+
+# Local sample data (downloaded at runtime on Colab)
+data/sample/
+
+# Eval outputs (regenerate per run)
+results/*.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Model weights / checkpoints
+*.pt
+*.bin
+*.safetensors
+
+# Virtual envs
+.venv/
+venv/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/

@@ -1,0 +1,59 @@
+# All knobs for the chest-xray multi-modal system.
+# Source of truth for paths, model IDs, sample sizes, and retrieval params.
+
+# ---------- Data ----------
+data:
+  kaggle_slug: "simhadrisadaram/mimic-cxr-dataset"
+  sample_dir: "data/sample"
+  images_dir: "data/sample/images"
+  manifest_all: "data/sample/manifest.csv"
+  manifest_index: "data/sample/manifest_index.csv"   # 300 rows for indexing
+  manifest_test: "data/sample/manifest_test.csv"     # 100 rows held out
+  qa_dataset: "data/sample/qa_dataset.json"
+  total_samples: 400
+  index_split: 300
+  test_split: 100
+  seed: 42
+
+# ---------- Models ----------
+models:
+  medgemma:
+    hf_id: "google/medgemma-1.5-4b-it"
+    load_in_4bit: true
+    max_new_tokens: 512
+    temperature: 0.2
+  colpali:
+    hf_id: "vidore/colpali-v1.3"
+    index_path: "data/sample/colpali_index"
+    report_image_size: [1024, 1280]   # width, height for rendered report PNGs
+  clip:
+    model_name: "ViT-B-32"
+    pretrained: "openai"
+    index_path: "data/sample/clip_index.faiss"
+  text_retriever:
+    hf_id: "sentence-transformers/all-MiniLM-L6-v2"
+    index_path: "data/sample/text_index.faiss"
+
+# ---------- Retrieval ----------
+retrieval:
+  top_k: 3
+
+# ---------- QA dataset generation ----------
+qa_generation:
+  reports_to_use: 100        # subset of manifest_index for QA pairs
+  pairs_per_report: 3
+
+# ---------- Evaluation ----------
+eval:
+  report_test_n: 100         # full test split for ROUGE / BERTScore
+  qa_test_n: 50              # QA items to score (judge cost control)
+  bertscore_lang: "en"
+  results_dir: "results"
+  comparison_json: "results/comparison.json"
+  comparison_md: "results/comparison.md"
+
+# ---------- Demo ----------
+demo:
+  share: true
+  server_name: "0.0.0.0"
+  server_port: 7860
