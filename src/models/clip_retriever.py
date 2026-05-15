@@ -80,30 +80,57 @@ def _index_paths() -> tuple[Path, Path]:
     return index_path, manifest_snapshot
 
 
-def build_index(manifest_path: Optional[Path] = None) -> None:
-    """Embed every image in the manifest and persist a FAISS index + manifest snapshot."""
+def build_index(manifest_path: Optional[Path] = None, batch_size: Optional[int] = None) -> None:
+    """Embed every image in the manifest and persist a FAISS index + manifest snapshot.
+
+    Batched encoding: preprocess images on CPU, stack into a tensor, run a single
+    forward pass per batch. On a T4, batch=32 takes single-digit seconds for 300 images.
+    """
     cfg = _load_config()
     if manifest_path is None:
         manifest_path = _REPO_ROOT / cfg["data"]["manifest_index"]
+    if batch_size is None:
+        batch_size = cfg["models"]["clip"].get("embed_batch_size", 32)
     index_path, manifest_snapshot = _index_paths()
 
     df = pd.read_csv(manifest_path)
+    model, preprocess = _ensure_model()
+    device = _device()
+
     keep_rows: list[int] = []
-    embeddings: list[np.ndarray] = []
+    embeddings_chunks: list[np.ndarray] = []
+    pending_tensors: list[torch.Tensor] = []
+    pending_idxs: list[int] = []
+
+    def _flush():
+        if not pending_tensors:
+            return
+        batch = torch.stack(pending_tensors).to(device)
+        with torch.inference_mode():
+            feats = model.encode_image(batch).float()
+            feats = feats / feats.norm(dim=-1, keepdim=True)
+        embeddings_chunks.append(feats.cpu().numpy().astype("float32"))
+        keep_rows.extend(pending_idxs)
+        pending_tensors.clear()
+        pending_idxs.clear()
+
     for i, row in tqdm(df.iterrows(), total=len(df), desc="CLIP embedding"):
         img_path = _REPO_ROOT / row["image_path"]
         try:
             with Image.open(img_path) as im:
-                emb = _embed_image(im)
+                tensor = preprocess(im.convert("RGB"))
         except Exception as e:
             print(f"WARN: skipping {img_path}: {e}")
             continue
-        keep_rows.append(i)
-        embeddings.append(emb)
+        pending_tensors.append(tensor)
+        pending_idxs.append(i)
+        if len(pending_tensors) >= batch_size:
+            _flush()
+    _flush()
 
-    if not embeddings:
+    if not embeddings_chunks:
         raise RuntimeError(f"No embeddable images under {manifest_path}.")
-    X = np.vstack(embeddings)
+    X = np.vstack(embeddings_chunks)
     df_aligned = df.iloc[keep_rows].reset_index(drop=True)
 
     index = faiss.IndexFlatIP(X.shape[1])  # cosine sim via L2-normalized inner product

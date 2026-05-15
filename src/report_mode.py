@@ -77,7 +77,21 @@ def _main() -> None:
     test_csv = _REPO_ROOT / cfg["data"]["manifest_test"]
     df = pd.read_csv(test_csv).head(10).reset_index(drop=True)
     print(f"Comparing on {len(df)} test images from {test_csv.name}")
-    print("(First call per model includes one-time load time.)")
+
+    # Explicit warmup: CLIP first (model + index), then MedGemma. Keeps the
+    # per-image latency numbers below clean (no first-call load bleed) and
+    # makes the "what's loading right now" picture obvious in the log.
+    from src.models import clip_retriever, medgemma
+
+    print("\n[warmup] Loading CLIP (model + index)...")
+    t0 = time.perf_counter()
+    clip_retriever._ensure_index()
+    print(f"[warmup] CLIP ready in {time.perf_counter() - t0:.1f}s")
+
+    print("[warmup] Loading MedGemma (4-bit)...")
+    t0 = time.perf_counter()
+    medgemma._ensure_loaded()
+    print(f"[warmup] MedGemma ready in {time.perf_counter() - t0:.1f}s\n")
 
     for i, row in df.iterrows():
         img_path = _REPO_ROOT / row["image_path"]

@@ -31,6 +31,7 @@ models:
     model_name: "ViT-B-32-quickgelu"
     pretrained: "openai"
     index_path: "data/sample/clip_index.faiss"
+    embed_batch_size: 32
   text_retriever:
     hf_id: "sentence-transformers/all-MiniLM-L6-v2"
     index_path: "data/sample/text_index.faiss"
