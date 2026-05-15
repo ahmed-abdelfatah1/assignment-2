@@ -70,6 +70,13 @@ def _ensure_model():
                 "CUDA required for ColPali. On Colab: Runtime > Change runtime type > T4 GPU."
             )
 
+        # Aggressively free PyTorch's allocator before pulling 6 GB of ColPali
+        # weights onto the GPU. MedGemma's kv-cache from earlier calls can hold
+        # ~5 GB of cached-but-unused blocks until we ask for them back.
+        import gc
+        gc.collect()
+        torch.cuda.empty_cache()
+
         from colpali_engine.models import ColPali, ColPaliProcessor
 
         cfg = _load_config()

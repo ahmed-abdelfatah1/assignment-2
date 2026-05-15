@@ -136,4 +136,8 @@ def generate(
             do_sample=False,
         )
     gen = out[0][input_len:]
-    return processor.decode(gen, skip_special_tokens=True).strip()
+    text = processor.decode(gen, skip_special_tokens=True).strip()
+    # Free PyTorch's cached allocator blocks so ColPali has room to load alongside.
+    del inputs, out, gen
+    torch.cuda.empty_cache()
+    return text
