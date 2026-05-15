@@ -73,6 +73,14 @@ def _truncate(s: str, n: int = 400) -> str:
 
 
 def _main() -> None:
+    # Force line-buffered stdout/stderr so prints appear immediately under
+    # Colab's `!python -m ...` invocation (pipes default to block-buffered).
+    try:
+        sys.stdout.reconfigure(line_buffering=True)
+        sys.stderr.reconfigure(line_buffering=True)
+    except (AttributeError, ValueError):
+        pass
+
     cfg = _load_config()
     test_csv = _REPO_ROOT / cfg["data"]["manifest_test"]
     df = pd.read_csv(test_csv).head(10).reset_index(drop=True)
