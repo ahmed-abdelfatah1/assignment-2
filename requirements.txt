@@ -1,13 +1,10 @@
 # Core ML / inference
 torch>=2.2
-transformers>=4.45
+# transformers 4.49+ ships native ColPaliForRetrieval; we no longer need the
+# colpali-engine library (which had the LoRA-key remapping issues).
+transformers>=4.49
 accelerate
 bitsandbytes
-
-# Vision-language retrieval (mandatory)
-colpali-engine>=0.3
-# colpali-engine 0.3+ uses torchao internally and rejects <0.16.0 at runtime.
-torchao>=0.16.0
 
 # Baselines
 sentence-transformers

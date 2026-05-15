@@ -23,7 +23,9 @@ models:
     max_new_tokens: 512
     temperature: 0.2
   colpali:
-    hf_id: "vidore/colpali-v1.3"
+    # -hf variant: loaded via transformers.ColPaliForRetrieval (native), not the
+    # colpali-engine library. Avoids the v1.3 + transformers-5.x LoRA-key issue.
+    hf_id: "vidore/colpali-v1.3-hf"
     index_path: "data/sample/colpali_index"
     report_image_size: [1024, 1280]   # width, height for rendered report PNGs
     # 4-bit shrinks ~6 GB -> ~2 GB so it coexists with MedGemma 4-bit on a T4.
