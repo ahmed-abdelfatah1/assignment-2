@@ -131,8 +131,13 @@ def render_report(text: str, size: tuple[int, int]) -> Image.Image:
     return img
 
 
-def build_index(manifest_path: Optional[Path] = None, batch_size: int = 4) -> None:
-    """Render each report -> ColPali-embed -> persist tensor + manifest snapshot."""
+def build_index(manifest_path: Optional[Path] = None, batch_size: int = 1) -> None:
+    """Render each report -> ColPali-embed -> persist tensor + manifest snapshot.
+
+    batch_size=1 because PaliGemma's vision+text forward pass allocates ~3 GB of
+    activations per item; batching even to 2 OOMs on T4 once MedGemma is also
+    resident. The per-call overhead is negligible compared to the embed itself.
+    """
     cfg = _load_config()
     if manifest_path is None:
         manifest_path = _REPO_ROOT / cfg["data"]["manifest_index"]
@@ -155,12 +160,14 @@ def build_index(manifest_path: Optional[Path] = None, batch_size: int = 4) -> No
         inputs = processor.process_images(img_buf).to(device)
         with torch.no_grad():
             embs = model(**inputs)
-        # embs: [B, n_patches, dim] in bf16. Move to CPU between batches so GPU
-        # memory doesn't accumulate across the whole corpus.
+        # Move to CPU between batches AND release cached GPU activations,
+        # otherwise PyTorch's allocator holds onto them and we OOM after ~3 items.
         chunks.append(embs.detach().to("cpu"))
         keep_rows.extend(idx_buf)
         img_buf.clear()
         idx_buf.clear()
+        del inputs, embs
+        torch.cuda.empty_cache()
 
     for i, row in tqdm(df.iterrows(), total=len(df), desc="ColPali render+embed"):
         try:
