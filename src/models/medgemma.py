@@ -33,7 +33,8 @@ _CFG_PATH = _REPO_ROOT / "config.yaml"
 
 _model = None
 _processor = None
-_load_lock = threading.Lock()
+# RLock so re-entrant calls from the same thread don't deadlock (matches clip_retriever).
+_load_lock = threading.RLock()
 
 
 def _load_config() -> dict:

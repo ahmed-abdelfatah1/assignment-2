@@ -31,7 +31,10 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 _CFG_PATH = _REPO_ROOT / "config.yaml"
 
 _state: dict = {"model": None, "preprocess": None, "index": None, "manifest": None}
-_lock = threading.Lock()
+# RLock (not Lock): _ensure_index acquires it and calls build_index, which calls
+# _ensure_model, which tries to acquire it again on the same thread. A plain
+# threading.Lock would deadlock there.
+_lock = threading.RLock()
 
 
 def _load_config() -> dict:
