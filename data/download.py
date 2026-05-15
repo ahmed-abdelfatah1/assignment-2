@@ -150,18 +150,25 @@ def find_csvs(root: Path) -> tuple[Path | None, Path | None]:
 
 
 def find_images_root(kagglehub_root: Path) -> Path:
-    """Locate the directory whose 'files/pXX/' subpath exists.
+    """Find the directory whose 'files/p1*' subtree exists.
 
-    The CSV stores image paths relative to a parent that varies by dataset
-    version (e.g. '.../official_data_iccv_final/files/p10/...'). We detect
-    the parent of `files/` so CSV-relative paths can be joined directly.
+    Depth-limited: checks root and immediate subdirs only - no recursion.
+    On Colab the dataset is mounted via FUSE at /kaggle/input/... and a
+    recursive rglob over 260K JPGs hangs; the prefix we want lives at most
+    one directory deep, so a shallow probe is sufficient.
     """
-    for candidate in kagglehub_root.rglob("files"):
-        if candidate.is_dir() and any(candidate.glob("p1*")):
-            return candidate.parent  # parent of 'files/', e.g. '.../official_data_iccv_final/'
+    candidates = [kagglehub_root] + [p for p in kagglehub_root.iterdir() if p.is_dir()]
+    for base in candidates:
+        files_dir = base / "files"
+        if files_dir.is_dir():
+            # Cheap probe: does it have any p1*/p2* patient prefix dir?
+            try:
+                next(files_dir.glob("p1*"))
+                return base
+            except StopIteration:
+                continue
     raise FileNotFoundError(
-        f"Could not locate 'files/pXX/' image tree under {kagglehub_root}. "
-        f"Check dataset layout."
+        f"Could not locate 'files/pXX/' under {kagglehub_root} (checked root + 1 level deep)."
     )
 
 
