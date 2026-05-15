@@ -1,9 +1,9 @@
-"""ColPali v1.3 retrieval over rendered report pages (transformers-native).
+"""ColPali v1.3 retrieval over rendered report pages.
 
 Each radiology report is rendered as a single PNG page using PIL + basic
 typography. ColPali (PaliGemma-based, multi-vector late-interaction) embeds
-each page via transformers' native ColPali class; queries are scored via
-the processor's score_retrieval method.
+each page via `colpali_engine.models.ColPali`; queries are scored via
+processor.score_multi_vector.
 
 Public API:
     build_index(manifest_path=None) -> None
@@ -12,9 +12,9 @@ Public API:
 Persistence: data/sample/colpali_index/doc_embeddings.pt (torch tensor) and
 manifest.csv (aligned to embedding rows). The model itself uses the HF cache.
 
-Note: a couple of transformers symbols are loaded via getattr-on-runtime-string
-to dodge an overzealous naive-substring security hook in this dev env. The
-resolved objects are exactly the public API.
+Note: colpali-engine MUST be installed from GitHub source for transformers 5.x
+LoRA-remapping fixes. PyPI 0.3.16 lags. Per maintainer guidance:
+    pip install git+https://github.com/illuin-tech/colpali
 """
 
 from __future__ import annotations
@@ -70,11 +70,7 @@ def _ensure_model():
                 "CUDA required for ColPali. On Colab: Runtime > Change runtime type > T4 GPU."
             )
 
-        import transformers as _tfm
-        from transformers import BitsAndBytesConfig, ColPaliProcessor
-        # Resolve the model class indirectly so a naive-substring scanner
-        # doesn't false-positive on the class name. Same class either way.
-        _ColPaliModelCls = getattr(_tfm, "ColPaliFor" + "Retri" + "eval")
+        from colpali_engine.models import ColPali, ColPaliProcessor
 
         cfg = _load_config()
         mc = cfg["models"]["colpali"]
@@ -85,18 +81,20 @@ def _ensure_model():
 
         print(f"[colpali] loading {model_id} (4bit={load_in_4bit})...", flush=True)
         t0 = _t.time()
-        from_pretrained_kw = dict(device_map="auto", **auth_kw)
+        from_pretrained_kw = dict(
+            device_map="cuda:0",
+            torch_dtype=torch.bfloat16,
+            **auth_kw,
+        )
         if load_in_4bit:
+            from transformers import BitsAndBytesConfig
             from_pretrained_kw["quantization_config"] = BitsAndBytesConfig(
                 load_in_4bit=True,
                 bnb_4bit_quant_type="nf4",
                 bnb_4bit_compute_dtype=torch.bfloat16,
                 bnb_4bit_use_double_quant=True,
             )
-        else:
-            from_pretrained_kw["torch_dtype"] = torch.bfloat16
-
-        model = _ColPaliModelCls.from_pretrained(model_id, **from_pretrained_kw)
+        model = ColPali.from_pretrained(model_id, **from_pretrained_kw)
         model.train(False)
         print(f"[colpali] model ready in {_t.time()-t0:.1f}s", flush=True)
 
@@ -111,12 +109,10 @@ def render_report(text: str, size: tuple[int, int]) -> Image.Image:
     width, height = size
     img = Image.new("RGB", (width, height), color="white")
     draw = ImageDraw.Draw(img)
-
     try:
         font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 20)
     except OSError:
         font = ImageFont.load_default()
-
     try:
         char_w = font.getbbox("M")[2]
     except Exception:
@@ -139,11 +135,7 @@ def render_report(text: str, size: tuple[int, int]) -> Image.Image:
 
 
 def build_index(manifest_path: Optional[Path] = None, batch_size: int = 1) -> None:
-    """Render each report -> ColPali-embed -> persist tensor + manifest snapshot.
-
-    batch_size=1 because PaliGemma's vision+text forward pass allocates ~3 GB of
-    activations per item; bigger batches OOM on T4 once MedGemma is also resident.
-    """
+    """Render each report -> ColPali-embed -> persist tensor + manifest snapshot."""
     cfg = _load_config()
     if manifest_path is None:
         manifest_path = _REPO_ROOT / cfg["data"]["manifest_index"]
@@ -163,15 +155,14 @@ def build_index(manifest_path: Optional[Path] = None, batch_size: int = 1) -> No
     def _flush():
         if not img_buf:
             return
-        inputs = processor(images=img_buf, return_tensors="pt").to(device)
+        inputs = processor.process_images(img_buf).to(device)
         with torch.no_grad():
-            out = model(**inputs)
-        embs = out.embeddings  # [B, n_patches, dim]
+            embs = model(**inputs)
         chunks.append(embs.detach().to("cpu"))
         keep_rows.extend(idx_buf)
         img_buf.clear()
         idx_buf.clear()
-        del inputs, out, embs
+        del inputs, embs
         torch.cuda.empty_cache()
 
     for i, row in tqdm(df.iterrows(), total=len(df), desc="ColPali render+embed"):
@@ -230,15 +221,11 @@ def query(question: str, top_k: int = 3) -> list[dict]:
         doc_emb = doc_emb.to(device)
         _state["doc_embeddings"] = doc_emb
 
-    q_inputs = processor(text=[question], return_tensors="pt").to(device)
+    q_inputs = processor.process_queries([question]).to(device)
     with torch.no_grad():
-        q_out = model(**q_inputs)
-    q_emb = q_out.embeddings  # [1, q_len, dim]
+        q_emb = model(**q_inputs)
 
-    # Late-interaction scoring; method name resolved via getattr to dodge a naive
-    # substring scanner. Returns [n_queries, n_docs].
-    _score_fn = getattr(processor, "score_" + "retri" + "eval")
-    scores = _score_fn(q_emb, doc_emb)
+    scores = processor.score_multi_vector(q_emb, doc_emb)  # [1, n_docs]
     scores_np = scores[0].detach().to("cpu").float().numpy()
     top_idx = scores_np.argsort()[::-1][:top_k]
 

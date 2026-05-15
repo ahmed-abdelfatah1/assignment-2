@@ -1,10 +1,14 @@
 # Core ML / inference
 torch>=2.2
-# transformers 4.49+ ships native ColPaliForRetrieval; we no longer need the
-# colpali-engine library (which had the LoRA-key remapping issues).
-transformers>=4.49
+# transformers 5.x for native ColPali processor registration + Gemma 3 support.
+transformers>=5.0
 accelerate
 bitsandbytes
+
+# ColPali via colpali-engine, INSTALLED FROM GITHUB SOURCE — PyPI 0.3.16 lags
+# the latest LoRA-remapping fixes for transformers 5.x:
+#   pip install git+https://github.com/illuin-tech/colpali
+# (cannot pin a git ref here cleanly; the Colab notebook handles the install.)
 
 # Baselines
 sentence-transformers

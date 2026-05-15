@@ -23,13 +23,15 @@ models:
     max_new_tokens: 512
     temperature: 0.2
   colpali:
-    # -hf variant: loaded via transformers.ColPaliForRetrieval (native), not the
-    # colpali-engine library. Avoids the v1.3 + transformers-5.x LoRA-key issue.
-    hf_id: "vidore/colpali-v1.3-hf"
+    # LoRA-adapter checkpoint loaded via colpali-engine (installed from GitHub
+    # source). The -hf variant is broken on transformers >=4.52 per maintainer.
+    hf_id: "vidore/colpali-v1.3"
     index_path: "data/sample/colpali_index"
     report_image_size: [1024, 1280]   # width, height for rendered report PNGs
-    # 4-bit shrinks ~6 GB -> ~2 GB so it coexists with MedGemma 4-bit on a T4.
-    load_in_4bit: true
+    # bf16 (not 4-bit): bnb 4-bit quantization with PaliGemma + LoRA on
+    # transformers 5.x raises "FP4 quantization state not initialized" at
+    # forward time. bf16 fits alongside MedGemma 4-bit on T4 (15 GB total).
+    load_in_4bit: false
   clip:
     # Use the -quickgelu variant so activation matches OpenAI's pretrained weights.
     model_name: "ViT-B-32-quickgelu"
