@@ -50,7 +50,8 @@ QA_PROMPT_TEMPLATE = (
     "From the radiology report below, generate exactly 3 clinical question-answer pairs. "
     "Mix question types: one yes/no (finding presence), one open-ended (description), "
     "one location/laterality. "
-    'Output strict JSON: [{"q": ..., "a": ...}, ...]. '
+    # Double braces -> literal '{' '}' after .format(), so MedGemma sees real JSON.
+    'Output strict JSON: [{{"q": ..., "a": ...}}, ...]. '
     "Report: {report}"
 )
 
