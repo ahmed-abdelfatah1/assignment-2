@@ -61,19 +61,46 @@ def generate_report_medgemma(image: Image.Image) -> dict:
     }
 
 
-def generate_report_clip(image: Image.Image) -> dict:
-    """Retrieval baseline: nearest training image's report verbatim."""
+def generate_report_clip(image: Image.Image, top_k: int = 1) -> dict:
+    """Retrieval baseline: nearest training image's report(s).
+
+    top_k=1 returns a single verbatim report (eval default — keeps the comparison
+    fair against MedGemma's single report). top_k>1 returns the top-k reports
+    concatenated with similarity scores for the demo, giving the user visibility
+    into how CLIP ranks alternatives instead of always seeing the same modal
+    'normal' report that dominates the corpus.
+    """
     from src.models import clip_retriever
     t0 = time.perf_counter()
-    top = clip_retriever.query(image, top_k=1)[0]
+    results = clip_retriever.query(image, top_k=top_k)
+
+    if top_k == 1:
+        top = results[0]
+        return {
+            "model": "openclip-vit-b-32-retrieval",
+            "report": top["report"],
+            "latency_s": time.perf_counter() - t0,
+            "extras": {
+                "retrieved_id": top["id"],
+                "similarity": top["similarity"],
+                "retrieved_image": top["image_path"],
+            },
+        }
+
+    parts = []
+    for i, r in enumerate(results, 1):
+        parts.append(
+            f"=== Match #{i}  (similarity={r['similarity']:.3f}, id={r['id'][:12]}...) ===\n"
+            f"{r['report']}"
+        )
     return {
-        "model": "openclip-vit-b-32-retrieval",
-        "report": top["report"],
+        "model": f"openclip-vit-b-32-retrieval-top{top_k}",
+        "report": "\n\n".join(parts),
         "latency_s": time.perf_counter() - t0,
         "extras": {
-            "retrieved_id": top["id"],
-            "similarity": top["similarity"],
-            "retrieved_image": top["image_path"],
+            "retrieved_ids": [r["id"] for r in results],
+            "similarities": [r["similarity"] for r in results],
+            "retrieved_images": [r["image_path"] for r in results],
         },
     }
 

@@ -41,7 +41,10 @@ def _report_medgemma(img):
 
 def _report_clip(img):
     from src.report_mode import generate_report_clip
-    return generate_report_clip(img)
+    # Demo shows top-3 with similarity scores so the user sees CLIP's alternatives
+    # instead of always landing on the same modal "normal" report. Eval still
+    # uses top_k=1 to keep the head-to-head with MedGemma fair.
+    return generate_report_clip(img, top_k=3)
 
 
 def _qa_colpali(q, k):
