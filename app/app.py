@@ -59,7 +59,7 @@ def _qa_text(q, k):
 
 REPORT_MODELS = {
     "MedGemma 1.5-4B (multimodal)": _report_medgemma,
-    "OpenCLIP ViT-B/32 (retrieval)": _report_clip,
+    "BiomedCLIP ViT-B/16 (retrieval, top-3)": _report_clip,
 }
 
 QA_RETRIEVERS = {
@@ -114,8 +114,9 @@ def _build_ui() -> gr.Blocks:
             with gr.Tab("Report Generation"):
                 gr.Markdown(
                     "Upload a chest X-ray and pick a model. **MedGemma** generates "
-                    "from scratch (~10 s/image); **CLIP retrieval** returns the "
-                    "nearest training image's report verbatim (~50 ms)."
+                    "a per-region radiology report from scratch (~10 s/image). "
+                    "**BiomedCLIP retrieval** returns the top-3 most visually similar "
+                    "training reports with their similarity scores (~50 ms)."
                 )
                 with gr.Row():
                     with gr.Column():
