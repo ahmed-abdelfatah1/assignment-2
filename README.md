@@ -105,8 +105,8 @@ python app/app.py
 
 | Model | ROUGE-L F1 | BERTScore F1 | Latency mean (s) |
 |---|---:|---:|---:|
-| MedGemma 1.5-4B | **0.347** | **0.890** | 10.90 |
-| OpenCLIP retrieval | 0.283 | 0.887 | **0.33** |
+| MedGemma 1.5-4B | 0.253 | 0.859 | 21.55 |
+| BiomedCLIP retrieval (top-1) | **0.276** | **0.881** | **0.36** |
 
 ### QA RAG (n=15)
 
@@ -115,7 +115,7 @@ python app/app.py
 | ColPali v1.3 | 0.000 | 0.400 | 6 | **3** | 5 | 1 | 70.17 |
 | MiniLM-L6 text | **0.133** | **0.467** | **7** | 1 | 7 | 0 | **11.01** |
 
-Headlines: MedGemma beats CLIP retrieval by +23% on ROUGE-L for report generation. MiniLM-L6 narrowly beats ColPali v1.3 on Recall@3, strict-correct judge accuracy, and latency (6.4× faster). See `report/REPORT.md` for methodology, qualitative observations, and limitations.
+Headlines: **Medical-pretrained retrieval beats zero-shot multimodal generation at n=30.** BiomedCLIP (medical-pretrained ViT-B/16, 15M PubMed pairs) edges MedGemma 1.5-4B on both ROUGE-L (+9%) and BERTScore (+0.022) with ~60× lower latency. The MedGemma vs simple-OpenCLIP comparison originally shipped at +23% in MedGemma's favor; swapping the baseline to a medically-pretrained retriever reverses the result. On QA, MiniLM-L6 narrowly beats ColPali v1.3 on Recall@3, strict-correct judge accuracy, and latency (6.4× faster). See `report/REPORT.md` for methodology, qualitative observations, and limitations.
 
 ---
 
