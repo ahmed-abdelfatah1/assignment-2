@@ -21,7 +21,10 @@ models:
     hf_id: "google/medgemma-1.5-4b-it"
     load_in_4bit: true
     max_new_tokens: 512
-    temperature: 0.2
+    # Sampling temperature. 0.0 = greedy (modal output collapses to "no acute
+    # cardiopulmonary process" boilerplate). 0.3-0.5 gives varied + grounded
+    # outputs. Set to 0 if reproducibility matters more than diversity.
+    temperature: 0.3
   colpali:
     # -merged variant: same v1.3 trained weights but LoRA pre-merged into the
     # base model. No PEFT adapter loading -> no LoRA-key remap problems on

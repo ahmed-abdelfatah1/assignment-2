@@ -25,9 +25,20 @@ if str(_REPO_ROOT) not in sys.path:
 _CFG_PATH = _REPO_ROOT / "config.yaml"
 
 REPORT_PROMPT = (
-    "You are an expert radiologist. Write a concise chest X-ray report for the image. "
-    "Use two sections: 'Findings:' (one paragraph) and 'Impression:' (one short paragraph). "
-    "Do not invent patient identifiers or clinical history."
+    "You are a radiologist reviewing the chest X-ray above. Examine the image carefully "
+    "and write a structured radiology report. Do not fall back to a generic 'no acute "
+    "cardiopulmonary process' template unless every region is genuinely unremarkable.\n\n"
+    "Required structure:\n"
+    "FINDINGS: Comment specifically on each region:\n"
+    "  - Lungs (left and right, mention any consolidation, opacity, atelectasis, edema)\n"
+    "  - Pleural surfaces (any effusion, pneumothorax, thickening)\n"
+    "  - Cardiac silhouette (size, contour)\n"
+    "  - Mediastinum and hila\n"
+    "  - Visualized osseous structures and soft tissues\n"
+    "  - Any lines, tubes, surgical wires, or devices visible\n"
+    "IMPRESSION: 1-2 sentences summarizing the clinically important findings.\n\n"
+    "Be specific about laterality (left vs right) and location. Use exactly the section "
+    "headers 'Findings:' and 'Impression:'. Do not invent patient identifiers or history."
 )
 
 

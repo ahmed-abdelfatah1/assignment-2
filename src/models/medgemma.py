@@ -128,12 +128,23 @@ def generate(
     device = next(model.parameters()).device
     inputs = inputs.to(device, dtype=torch.bfloat16)
 
+    # Honor temperature from config: temp > 0 enables sampling so outputs
+    # vary instead of collapsing to MedGemma's modal "no acute cardiopulmonary
+    # process" template under greedy decoding.
+    cfg_mc = _load_config()["models"]["medgemma"]
+    temp = float(cfg_mc.get("temperature", 0.0) or 0.0)
+    sample_kwargs = {"do_sample": False} if temp <= 0 else {
+        "do_sample": True,
+        "temperature": temp,
+        "top_p": 0.95,
+    }
+
     input_len = inputs["input_ids"].shape[-1]
     with torch.inference_mode():
         out = model.generate(
             **inputs,
             max_new_tokens=max_new_tokens,
-            do_sample=False,
+            **sample_kwargs,
         )
     gen = out[0][input_len:]
     text = processor.decode(gen, skip_special_tokens=True).strip()
