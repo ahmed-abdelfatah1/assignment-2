@@ -39,11 +39,16 @@ models:
     # the 4-bit path works correctly.
     load_in_4bit: true
   clip:
-    # Use the -quickgelu variant so activation matches OpenAI's pretrained weights.
-    model_name: "ViT-B-32-quickgelu"
-    pretrained: "openai"
+    # BiomedCLIP: ViT-base/16 image encoder + PubMedBERT text encoder, pretrained
+    # on 15M PubMed (image, caption) pairs by Microsoft. Same open_clip API,
+    # same 512-d embedding output, but actually understands radiology features
+    # (sternotomy hardware, cardiomegaly, edema patterns) that vanilla OpenCLIP
+    # cannot see. The "hf-hub:" prefix tells open_clip to load via HF Hub.
+    model_name: "hf-hub:microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224"
+    pretrained: null    # not used for hf-hub models
     index_path: "data/sample/clip_index.faiss"
-    embed_batch_size: 32
+    # ViT-B/16 has 4x more patches than ViT-B/32 -> smaller batch to stay safe on T4.
+    embed_batch_size: 16
   text_retriever:
     hf_id: "sentence-transformers/all-MiniLM-L6-v2"
     index_path: "data/sample/text_index.faiss"

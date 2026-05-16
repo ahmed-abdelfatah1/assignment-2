@@ -59,11 +59,17 @@ def _ensure_model():
         import time as _t
         cfg = _load_config()
         mc = cfg["models"]["clip"]
-        print(f"[clip] create_model_and_transforms(name={mc['model_name']}, pretrained={mc['pretrained']})...", flush=True)
+        # hf-hub:* models (e.g. BiomedCLIP) load via create_model_from_pretrained
+        # (returns 2 values); classic open_clip checkpoints use
+        # create_model_and_transforms (returns 3).
+        print(f"[clip] loading {mc['model_name']} (pretrained={mc.get('pretrained')})...", flush=True)
         t0 = _t.time()
-        model, _, preprocess = open_clip.create_model_and_transforms(
-            mc["model_name"], pretrained=mc["pretrained"]
-        )
+        if mc["model_name"].startswith("hf-hub:"):
+            model, preprocess = open_clip.create_model_from_pretrained(mc["model_name"])
+        else:
+            model, _, preprocess = open_clip.create_model_and_transforms(
+                mc["model_name"], pretrained=mc["pretrained"]
+            )
         print(f"[clip] model built in {_t.time()-t0:.1f}s", flush=True)
         device = _device()
         print(f"[clip] moving to {device}...", flush=True)
